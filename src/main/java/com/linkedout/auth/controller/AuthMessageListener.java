@@ -2,7 +2,7 @@ package com.linkedout.auth.controller;
 
 import com.linkedout.auth.config.RabbitMQConfig;
 import com.linkedout.auth.service.AuthService;
-import com.rabbitmq.client.MessageProperties;
+import com.linkedout.common.constant.RabbitMQConstants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -23,7 +23,7 @@ public class AuthMessageListener {
 	private final RabbitTemplate rabbitTemplate;
 	private final AuthService authService;
 
-	@RabbitListener(queues = RabbitMQConfig.AUTH_QUEUE)
+	@RabbitListener(queues = RabbitMQConstants.AUTH_QUEUE)
 	public void processAuthRequest(RequestData request, @Header(AmqpHeaders.CORRELATION_ID) String correlationId) {
 		log.info("받은 요청: {}, correlationId: {}", request, correlationId);
 
@@ -57,8 +57,8 @@ public class AuthMessageListener {
 		}
 
 		rabbitTemplate.convertAndSend(
-			RabbitMQConfig.EXCHANGE_NAME,
-			RabbitMQConfig.AUTH_RESPONSE_ROUTING_KEY,
+			RabbitMQConstants.AUTH_EXCHANGE,
+			RabbitMQConstants.AUTH_RESPONSE_ROUTING_KEY,
 			response
 		);
 

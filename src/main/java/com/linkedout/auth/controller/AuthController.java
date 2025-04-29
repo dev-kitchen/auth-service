@@ -1,11 +1,10 @@
 package com.linkedout.auth.controller;
 
-import com.linkedout.auth.config.RabbitMQConfig;
 import com.linkedout.auth.dto.AuthRequest;
 import com.linkedout.auth.dto.AuthResponse;
+import com.linkedout.common.constant.RabbitMQConstants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -56,8 +55,8 @@ public class AuthController {
 
 			// RabbitMQ로 메시지 전송
 			rabbitTemplate.convertAndSend(
-				RabbitMQConfig.EXCHANGE_NAME,
-				RabbitMQConfig.AUTH_ROUTING_KEY,
+				RabbitMQConstants.AUTH_EXCHANGE,
+				RabbitMQConstants.AUTH_ROUTING_KEY,
 				request
 			);
 
@@ -94,8 +93,8 @@ public class AuthController {
 			pendingResponses.put(correlationId, futureResponse);
 
 			rabbitTemplate.convertAndSend(
-				RabbitMQConfig.EXCHANGE_NAME,
-				RabbitMQConfig.AUTH_ROUTING_KEY,
+				RabbitMQConstants.AUTH_EXCHANGE,
+				RabbitMQConstants.AUTH_ROUTING_KEY,
 				request
 			);
 
@@ -129,8 +128,8 @@ public class AuthController {
 			pendingResponses.put(correlationId, futureResponse);
 
 			rabbitTemplate.convertAndSend(
-				RabbitMQConfig.EXCHANGE_NAME,
-				RabbitMQConfig.AUTH_ROUTING_KEY,
+				RabbitMQConstants.AUTH_EXCHANGE,
+				RabbitMQConstants.AUTH_ROUTING_KEY,
 				request
 			);
 
