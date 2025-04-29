@@ -2,6 +2,7 @@ package com.linkedout.auth.controller;
 
 import com.linkedout.auth.config.RabbitMQConfig;
 import com.linkedout.auth.service.AuthService;
+import com.rabbitmq.client.MessageProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -24,7 +25,7 @@ public class AuthMessageListener {
 
 	@RabbitListener(queues = RabbitMQConfig.AUTH_QUEUE)
 	public void processAuthRequest(RequestData request, @Header(AmqpHeaders.CORRELATION_ID) String correlationId) {
-		log.info("Received auth request: {}, correlationId: {}", request, correlationId);
+		log.info("받은 요청: {}, correlationId: {}", request, correlationId);
 
 
 		ResponseData response = new ResponseData();
@@ -48,7 +49,7 @@ public class AuthMessageListener {
 				}
 			}
 		} catch (Exception e) {
-			log.error("Error processing auth request", e);
+			log.error("요청 처리중 에러 발생", e);
 			// 500 Internal Server Error 응답 생성
 			response.setStatusCode(500);
 			response.getHeaders().put("Content-Type", "application/json");
@@ -61,6 +62,6 @@ public class AuthMessageListener {
 			response
 		);
 
-		log.info("Auth response sent: {}", response);
+		log.info("응답 전송: {}", response);
 	}
 }

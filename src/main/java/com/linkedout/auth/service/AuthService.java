@@ -147,9 +147,9 @@ public class AuthService {
 			response.setUser(user);
 
 		} catch (Exception e) {
-			log.error("Token validation error", e);
+			log.error("토큰 검증 에러", e);
 			response.setSuccess(false);
-			response.setError("Token validation error: " + e.getMessage());
+			response.setError("토큰 검증 에러: " + e.getMessage());
 		}
 	}
 
@@ -159,7 +159,7 @@ public class AuthService {
 		response.setHeaders(new HashMap<>());
 		response.getHeaders().put("Content-Type", "application/json");
 
-		String responseBody = "{\"success\":true,\"message\":\"Successfully logged out\"}";
+		String responseBody = "{\"success\":true,\"message\":\"I'm alive\"}";
 		response.setBody(responseBody);
 	}
 }

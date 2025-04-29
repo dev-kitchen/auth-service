@@ -147,19 +147,19 @@ public class AuthController {
 	}
 
 
-	/**
-	 * RabbitMQ 응답 처리를 위한 리스너
-	 */
-	@RabbitListener(queues = RabbitMQConfig.GATEWAY_QUEUE)
-	public void handleAuthResponse(AuthResponse response) {
-		String correlationId = response.getCorrelationId();
-		log.info("Received auth response with correlationId: {}", correlationId);
-
-		CompletableFuture<AuthResponse> futureResponse = pendingResponses.get(correlationId);
-		if (futureResponse != null) {
-			futureResponse.complete(response);
-		} else {
-			log.warn("No pending request found for correlationId: {}", correlationId);
-		}
-	}
+//	/**
+//	 * RabbitMQ REST 요청-응답 처리를 위한 리스너
+//	 */
+//	@RabbitListener(queues = RabbitMQConfig.GATEWAY_QUEUE)
+//	public void handleAuthResponse(AuthResponse response) {
+//		String correlationId = response.getCorrelationId();
+//		log.info("Received auth response with correlationId: {}", correlationId);
+//
+//		CompletableFuture<AuthResponse> futureResponse = pendingResponses.get(correlationId);
+//		if (futureResponse != null) {
+//			futureResponse.complete(response);
+//		} else {
+//			log.warn("No pending request found for correlationId: {}", correlationId);
+//		}
+//	}
 }

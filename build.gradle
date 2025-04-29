@@ -24,11 +24,28 @@ repositories {
 	mavenCentral()
 }
 
+ext {
+	// Spring Cloud 버전 설정 (2023.0.5)
+	// Spring Cloud는 분산 시스템 패턴(서비스 디스커버리, 게이트웨이 등)을 쉽게 구현하기 위한 도구 모음
+	set('springCloudVersion', "2023.0.5")
+}
+
+dependencyManagement {
+	imports {
+		// Spring Cloud BOM(Bill of Materials)을 가져와서 Spring Cloud 의존성 버전을 일관되게 관리
+		// BOM은 의존성 버전 관리를 간소화해주는 특별한 POM 파일
+		mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+	}
+}
+
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'org.springframework.boot:spring-boot-starter-data-rest'
 	implementation 'org.springframework.boot:spring-boot-starter-amqp'
 	implementation 'org.springframework.amqp:spring-rabbit'
 	implementation 'org.springframework.security:spring-security-oauth2-jose'
@@ -45,6 +62,7 @@ dependencies {
 	testImplementation 'org.springframework.security:spring-security-test'
 	testImplementation 'org.springframework.amqp:spring-rabbit-test'
 	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+	implementation 'org.postgresql:postgresql:42.6.0'
 
 	implementation 'com.linkedout:common:0.0.1'
 }
