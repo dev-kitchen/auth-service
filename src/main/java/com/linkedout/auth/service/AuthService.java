@@ -2,15 +2,17 @@ package com.linkedout.auth.service;
 
 import com.linkedout.auth.dto.AuthRequest;
 import com.linkedout.auth.dto.AuthResponse;
-import com.linkedout.auth.dto.RequestData;
-import com.linkedout.auth.dto.ResponseData;
 import com.linkedout.auth.model.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import com.linkedout.common.dto.RequestData;
+import com.linkedout.common.dto.ResponseData;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -54,8 +56,15 @@ public class AuthService {
 
 			// 토큰 요청 보내기
 			String tokenUri = registration.getProviderDetails().getTokenUri();
-			Map<String, Object> tokenResponse = restTemplate.postForObject(
-				tokenUri, tokenRequest, Map.class);
+
+			WebClient webClient = WebClient.create();
+			Map<String, Object> tokenResponse = webClient.post()
+				.uri(tokenUri)
+				.bodyValue(tokenRequest)
+				.retrieve()
+				.bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {
+				})
+				.block();
 
 			if (tokenResponse == null || !tokenResponse.containsKey("access_token")) {
 				response.setSuccess(false);
@@ -67,8 +76,14 @@ public class AuthService {
 
 			// 사용자 정보 가져오기
 			String userInfoUri = registration.getProviderDetails().getUserInfoEndpoint().getUri();
-			Map<String, Object> userAttributes = restTemplate.getForObject(
-				userInfoUri + "?access_token=" + accessToken, Map.class);
+
+			Map<String, Object> userAttributes = webClient.get()
+				.uri(userInfoUri)
+				.headers(headers -> headers.setBearerAuth(accessToken))  // Authorization: Bearer 헤더 설정
+				.retrieve()
+				.bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {
+				})
+				.block();
 
 			if (userAttributes == null) {
 				response.setSuccess(false);
@@ -138,13 +153,8 @@ public class AuthService {
 		}
 	}
 
-	public void processLogout(AuthRequest request, AuthResponse response) {
-		// 로그아웃 처리는 클라이언트 측에서 토큰을 삭제하는 방식으로 구현
-		// 서버 측에서는 특별한 처리가 필요 없음
-		response.setSuccess(true);
-	}
 
-	public void test(RequestData request, ResponseData response) {
+	public void health(RequestData request, ResponseData response) {
 		response.setStatusCode(200); // OK
 		response.setHeaders(new HashMap<>());
 		response.getHeaders().put("Content-Type", "application/json");

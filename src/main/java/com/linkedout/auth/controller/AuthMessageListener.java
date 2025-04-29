@@ -1,10 +1,6 @@
 package com.linkedout.auth.controller;
 
 import com.linkedout.auth.config.RabbitMQConfig;
-import com.linkedout.auth.dto.AuthRequest;
-import com.linkedout.auth.dto.AuthResponse;
-import com.linkedout.auth.dto.RequestData;
-import com.linkedout.auth.dto.ResponseData;
 import com.linkedout.auth.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,6 +9,8 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.AmqpHeaders;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Controller;
+import com.linkedout.common.dto.RequestData;
+import com.linkedout.common.dto.ResponseData;
 
 import java.util.HashMap;
 
@@ -39,7 +37,7 @@ public class AuthMessageListener {
 			String requestKey = method + " " + path;
 
 			switch (requestKey) {
-				case "GET /api/auth/test" -> authService.test(request, response);
+				case "GET /api/auth/health" -> authService.health(request, response);
 //				case "POST /api/auth/oauth" -> authService.processOAuthRequest(request, response);
 //				case "GET /api/auth/validate" -> authService.processTokenValidation(request, response);
 //				case "POST /api/auth/logout" -> authService.processLogout(request, response);
