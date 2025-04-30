@@ -1,165 +1,67 @@
 package com.linkedout.auth.service;
 
-import com.linkedout.auth.dto.AuthRequest;
-import com.linkedout.auth.dto.AuthResponse;
-import com.linkedout.auth.model.User;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedout.auth.dto.GoogleOAuthRequest;
+import com.linkedout.auth.exception.BadRequestException;
+import com.linkedout.auth.exception.InternalServerErrorException;
+import com.linkedout.auth.exception.UnauthorizedException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.security.oauth2.client.registration.ClientRegistration;
-import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 import com.linkedout.common.dto.RequestData;
 import com.linkedout.common.dto.ResponseData;
-import org.springframework.web.reactive.function.client.WebClient;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
-	private final ClientRegistrationRepository clientRegistrationRepository;
-	private final JwtService jwtService;
-	private final RestTemplate restTemplate;
-
-	public void processOAuthRequest(AuthRequest request, AuthResponse response) {
-		String provider = request.getProvider();
-		String code = request.getCode();
-
-		if (provider == null || code == null) {
-			response.setSuccess(false);
-			response.setError("Provider and code must be provided");
-			return;
-		}
-
-		try {
-			ClientRegistration registration = clientRegistrationRepository.findByRegistrationId(provider);
-			if (registration == null) {
-				response.setSuccess(false);
-				response.setError("Unknown provider: " + provider);
-				return;
-			}
-
-			// OAuth 토큰 교환 수행
-			Map<String, String> tokenRequest = new HashMap<>();
-			tokenRequest.put("code", code);
-			tokenRequest.put("client_id", registration.getClientId());
-			tokenRequest.put("client_secret", registration.getClientSecret());
-			tokenRequest.put("redirect_uri", request.getRedirectUri());
-			tokenRequest.put("grant_type", "authorization_code");
-
-			// 토큰 요청 보내기
-			String tokenUri = registration.getProviderDetails().getTokenUri();
-
-			WebClient webClient = WebClient.create();
-			Map<String, Object> tokenResponse = webClient.post()
-				.uri(tokenUri)
-				.bodyValue(tokenRequest)
-				.retrieve()
-				.bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {
-				})
-				.block();
-
-			if (tokenResponse == null || !tokenResponse.containsKey("access_token")) {
-				response.setSuccess(false);
-				response.setError("Failed to obtain access token");
-				return;
-			}
-
-			String accessToken = (String) tokenResponse.get("access_token");
-
-			// 사용자 정보 가져오기
-			String userInfoUri = registration.getProviderDetails().getUserInfoEndpoint().getUri();
-
-			Map<String, Object> userAttributes = webClient.get()
-				.uri(userInfoUri)
-				.headers(headers -> headers.setBearerAuth(accessToken))  // Authorization: Bearer 헤더 설정
-				.retrieve()
-				.bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {
-				})
-				.block();
-
-			if (userAttributes == null) {
-				response.setSuccess(false);
-				response.setError("Failed to fetch user info");
-				return;
-			}
-
-			// 사용자 객체 생성
-			User user = User.builder()
-				.id(UUID.randomUUID().toString())
-				.email((String) userAttributes.get("email"))
-				.name((String) userAttributes.get("name"))
-				.picture((String) userAttributes.get("picture"))
-				.roles(Collections.singleton("ROLE_USER"))
-				.provider(provider)
-				.build();
-
-			// JWT 토큰 생성
-			String token = jwtService.generateToken(user);
-
-			response.setSuccess(true);
-			response.setToken(token);
-			response.setUser(user);
-
-		} catch (Exception e) {
-			log.error("OAuth authentication error", e);
-			response.setSuccess(false);
-			response.setError("OAuth authentication error: " + e.getMessage());
-		}
-	}
-
-	public void processTokenValidation(AuthRequest request, AuthResponse response) {
-		String token = request.getToken();
-
-		if (token == null) {
-			response.setSuccess(false);
-			response.setError("Token must be provided");
-			return;
-		}
-
-		try {
-			// 토큰에서 정보 추출
-			String userId = jwtService.extractUsername(token);
-			String email = jwtService.extractClaim(token, claims -> claims.get("email", String.class));
-			String name = jwtService.extractClaim(token, claims -> claims.get("name", String.class));
-
-			// 토큰 만료 확인
-			if (jwtService.isTokenExpired(token)) {
-				response.setSuccess(false);
-				response.setError("Token has expired");
-				return;
-			}
-
-			User user = User.builder()
-				.id(userId)
-				.email(email)
-				.name(name)
-				.build();
-
-			response.setSuccess(true);
-			response.setUser(user);
-
-		} catch (Exception e) {
-			log.error("토큰 검증 에러", e);
-			response.setSuccess(false);
-			response.setError("토큰 검증 에러: " + e.getMessage());
-		}
-	}
-
+	private final ObjectMapper objectMapper;
+	private final GoogleOAuthService googleOAuthService;
 
 	public void health(RequestData request, ResponseData response) {
-		response.setStatusCode(200); // OK
+		response.setStatusCode(201); // OK
 		response.setHeaders(new HashMap<>());
 		response.getHeaders().put("Content-Type", "application/json");
 
 		String responseBody = "{\"success\":true,\"message\":\"I'm alive\"}";
 		response.setBody(responseBody);
 	}
+
+	public void error(RequestData request, ResponseData response) {
+		throw new UnauthorizedException("에러테스트");
+	}
+
+	/**
+	 * 안드로이드용 구글 OAuth 요청을 처리하는 메서드
+	 * 클라이언트에서 받은 인증 코드를 안드로이드 클라이언트 ID로 검증하고 AT/RT 발급
+	 */
+	public void processOAuthRequest(RequestData request, ResponseData response) {
+		GoogleOAuthRequest oauthRequest;
+		try {
+			oauthRequest = objectMapper.readValue(request.getBody(), GoogleOAuthRequest.class);
+		} catch (JsonProcessingException e) {
+			// 예외 처리기가 처리하도록 throw
+			throw new BadRequestException("잘못된 요청 형식입니다: " + e.getMessage());
+		}
+
+		// 안드로이드용 구글 OAuth 코드 처리 및 토큰 발급
+		Map<String, String> result = googleOAuthService.processAndroidOAuthCode(oauthRequest);
+
+		// 응답 생성
+		response.setStatusCode(200);
+		response.setHeaders(new HashMap<>());
+		response.getHeaders().put("Content-Type", "application/json");
+		try {
+			response.setBody(objectMapper.writeValueAsString(result));
+		} catch (JsonProcessingException e) {
+			throw new InternalServerErrorException("응답 생성 중 오류 발생: " + e.getMessage());
+		}
+	}
+
+
 }

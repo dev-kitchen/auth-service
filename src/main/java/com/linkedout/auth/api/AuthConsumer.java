@@ -1,6 +1,7 @@
-package com.linkedout.auth.controller;
+package com.linkedout.auth.api;
 
-import com.linkedout.auth.config.RabbitMQConfig;
+import com.linkedout.auth.exception.BaseException;
+import com.linkedout.auth.exception.ErrorResponseBuilder;
 import com.linkedout.auth.service.AuthService;
 import com.linkedout.common.constant.RabbitMQConstants;
 import lombok.RequiredArgsConstructor;
@@ -18,10 +19,11 @@ import java.util.HashMap;
 @Slf4j
 @Controller
 @RequiredArgsConstructor
-public class AuthMessageListener {
+public class AuthConsumer {
 
 	private final RabbitTemplate rabbitTemplate;
 	private final AuthService authService;
+	private final ErrorResponseBuilder errorResponseBuilder;
 
 	@RabbitListener(queues = RabbitMQConstants.AUTH_QUEUE)
 	public void processAuthRequest(RequestData request, @Header(AmqpHeaders.CORRELATION_ID) String correlationId) {
@@ -39,21 +41,12 @@ public class AuthMessageListener {
 
 			switch (requestKey) {
 				case "GET /api/auth/health" -> authService.health(request, response);
-//				case "POST /api/auth/oauth" -> authService.processOAuthRequest(request, response);
-//				case "GET /api/auth/validate" -> authService.processTokenValidation(request, response);
-//				case "POST /api/auth/logout" -> authService.processLogout(request, response);
-				default -> {
-					response.setStatusCode(404);
-					response.getHeaders().put("Content-Type", "application/json");
-					response.setBody("{\"error\":\"Unknown request: " + requestKey + "\"}");
-				}
+				case "GET /api/auth/error" -> authService.error(request, response);
+				case "POST /api/auth/google/android" -> authService.processOAuthRequest(request, response);
+				default -> errorResponseBuilder.populateErrorResponse(response, 404, "요청을 처리할 수 없습니다: " + requestKey);
 			}
-		} catch (Exception e) {
-			log.error("요청 처리중 에러 발생", e);
-			// 500 Internal Server Error 응답 생성
-			response.setStatusCode(500);
-			response.getHeaders().put("Content-Type", "application/json");
-			response.setBody("{\"error\":\"" + e.getMessage() + "\"}");
+		} catch (BaseException ex) {
+			errorResponseBuilder.populateErrorResponse(response, ex.getStatusCode(), ex.getMessage());
 		}
 
 		rabbitTemplate.convertAndSend(
