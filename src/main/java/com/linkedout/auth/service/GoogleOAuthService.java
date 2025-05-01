@@ -8,7 +8,8 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleTokenResponse;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import com.linkedout.auth.utils.JwtUtil;
-import com.linkedout.common.dto.auth.GoogleOAuthRequest;
+import com.linkedout.common.dto.auth.oauth.google.GoogleOAuthRequest;
+import com.linkedout.common.dto.auth.oauth.google.GoogleOAuthResponse;
 import com.linkedout.common.exception.BadRequestException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +37,7 @@ public class GoogleOAuthService {
 	 * 안드로이드 앱에서 받은 구글 OAuth 코드를 처리
 	 * 안드로이드 클라이언트 ID 사용
 	 */
-	public Map<String, String> processAndroidOAuthCode(GoogleOAuthRequest request) {
+	public GoogleOAuthResponse processAndroidOAuthCode(GoogleOAuthRequest request) {
 		try {
 			// 1. 구글 OAuth 코드를 이용해 토큰 요청
 			// (안드로이드 클라이언트는 secret이 없으므로 serverAuthCode 방식 사용)
@@ -80,14 +81,14 @@ public class GoogleOAuthService {
 
 			// 5. 응답 맵 생성
 			// todo 타입 추가
-			Map<String, String> response = new HashMap<>();
-			response.put("access_token", accessToken);
-			response.put("refresh_token", refreshToken);
-			response.put("email", email);
-			response.put("name", (String) payload.get("name"));
-			response.put("picture", (String) payload.get("picture"));
 
-			return response;
+			return GoogleOAuthResponse.builder()
+				.accessToken(accessToken)
+				.refreshToken(refreshToken)
+				.email(email)
+				.name((String) payload.get("name"))
+				.picture((String) payload.get("picture"))
+				.build();
 
 		} catch (IOException | GeneralSecurityException e) {
 			log.error("Google OAuth 처리 중 오류 발생", e);

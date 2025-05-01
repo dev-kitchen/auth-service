@@ -2,7 +2,8 @@ package com.linkedout.auth.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.linkedout.common.dto.auth.GoogleOAuthRequest;
+import com.linkedout.common.dto.auth.oauth.google.GoogleOAuthRequest;
+import com.linkedout.common.dto.auth.oauth.google.GoogleOAuthResponse;
 import com.linkedout.common.exception.BadRequestException;
 import com.linkedout.common.exception.InternalServerErrorException;
 import com.linkedout.common.exception.UnauthorizedException;
@@ -24,7 +25,7 @@ public class AuthService {
 	private final GoogleOAuthService googleOAuthService;
 
 	public void health(RequestData request, ResponseData response) {
-		response.setStatusCode(201); // OK
+		response.setStatusCode(200); // OK
 		response.setHeaders(new HashMap<>());
 		response.getHeaders().put("Content-Type", "application/json");
 
@@ -50,7 +51,7 @@ public class AuthService {
 		}
 
 		// 안드로이드용 구글 OAuth 코드 처리 및 토큰 발급
-		Map<String, String> result = googleOAuthService.processAndroidOAuthCode(oauthRequest);
+		GoogleOAuthResponse result = googleOAuthService.processAndroidOAuthCode(oauthRequest);
 
 		// 응답 생성
 		response.setStatusCode(200);
