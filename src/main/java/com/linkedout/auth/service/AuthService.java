@@ -2,10 +2,10 @@ package com.linkedout.auth.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.linkedout.auth.dto.GoogleOAuthRequest;
-import com.linkedout.auth.exception.BadRequestException;
-import com.linkedout.auth.exception.InternalServerErrorException;
-import com.linkedout.auth.exception.UnauthorizedException;
+import com.linkedout.common.dto.auth.GoogleOAuthRequest;
+import com.linkedout.common.exception.BadRequestException;
+import com.linkedout.common.exception.InternalServerErrorException;
+import com.linkedout.common.exception.UnauthorizedException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

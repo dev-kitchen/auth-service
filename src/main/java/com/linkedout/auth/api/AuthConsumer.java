@@ -1,9 +1,9 @@
 package com.linkedout.auth.api;
 
-import com.linkedout.auth.exception.BaseException;
-import com.linkedout.auth.exception.ErrorResponseBuilder;
 import com.linkedout.auth.service.AuthService;
 import com.linkedout.common.constant.RabbitMQConstants;
+import com.linkedout.common.exception.ErrorResponseBuilder;
+import com.linkedout.common.exception.BaseException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
