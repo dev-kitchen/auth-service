@@ -2,6 +2,8 @@ package com.linkedout.auth.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedout.common.dto.ApiRequestData;
+import com.linkedout.common.dto.ApiResponseData;
 import com.linkedout.common.dto.auth.oauth.google.GoogleOAuthRequest;
 import com.linkedout.common.dto.auth.oauth.google.GoogleOAuthResponse;
 import com.linkedout.common.exception.BadRequestException;
@@ -10,8 +12,6 @@ import com.linkedout.common.exception.UnauthorizedException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import com.linkedout.common.dto.RequestData;
-import com.linkedout.common.dto.ResponseData;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -24,7 +24,7 @@ public class AuthService {
 	private final ObjectMapper objectMapper;
 	private final GoogleOAuthService googleOAuthService;
 
-	public void health(RequestData request, ResponseData response) {
+	public void health(ApiRequestData request, ApiResponseData response) {
 		response.setStatusCode(200); // OK
 		response.setHeaders(new HashMap<>());
 		response.getHeaders().put("Content-Type", "application/json");
@@ -33,15 +33,12 @@ public class AuthService {
 		response.setBody(responseBody);
 	}
 
-	public void error(RequestData request, ResponseData response) {
-		throw new UnauthorizedException("에러테스트");
-	}
 
 	/**
 	 * 안드로이드용 구글 OAuth 요청을 처리하는 메서드
 	 * 클라이언트에서 받은 인증 코드를 안드로이드 클라이언트 ID로 검증하고 AT/RT 발급
 	 */
-	public void processOAuthRequest(RequestData request, ResponseData response) {
+	public void processOAuthRequest(ApiRequestData request, ApiResponseData response) {
 		GoogleOAuthRequest oauthRequest;
 		try {
 			oauthRequest = objectMapper.readValue(request.getBody(), GoogleOAuthRequest.class);
@@ -51,7 +48,7 @@ public class AuthService {
 		}
 
 		// 안드로이드용 구글 OAuth 코드 처리 및 토큰 발급
-		GoogleOAuthResponse result = googleOAuthService.processAndroidOAuthCode(oauthRequest);
+		GoogleOAuthResponse result = googleOAuthService.processAndroidOAuthCode(oauthRequest.getIdToken());
 
 		// 응답 생성
 		response.setStatusCode(200);
@@ -63,6 +60,4 @@ public class AuthService {
 			throw new InternalServerErrorException("응답 생성 중 오류 발생: " + e.getMessage());
 		}
 	}
-
-
 }

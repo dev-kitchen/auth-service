@@ -1,9 +1,6 @@
 package com.linkedout.auth.config;
 
-import org.springframework.amqp.core.Binding;
-import org.springframework.amqp.core.BindingBuilder;
-import org.springframework.amqp.core.Queue;
-import org.springframework.amqp.core.TopicExchange;
+import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
@@ -12,39 +9,61 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import com.linkedout.common.constant.RabbitMQConstants;
 
+
 @Configuration
 public class RabbitMQConfig {
-	
+
+	/**
+	 * 마이크로서비스 통신을 위한 중앙 교환기를 정의하는 Bean
+	 *
+	 * <p>이 교환기는 게이트웨이와 모든 마이크로서비스 간의 메시지 라우팅을 담당합니다. 라우팅 키에 따라 메시지를 적절한 큐로 전달합니다.
+	 *
+	 * @return 서비스 교환기
+	 */
 	@Bean
-	public TopicExchange authExchange() {
-		return new TopicExchange(RabbitMQConstants.AUTH_EXCHANGE);
+	public DirectExchange apiExchange() {
+		// 첫 번째 매개변수: 교환기 이름
+		// 두 번째 매개변수: durable (true로 설정하면 RabbitMQ 서버가 재시작되어도 교환기가 유지됨)
+		// 세 번째 매개변수: autoDelete (자동 삭제 여부)
+		return new DirectExchange(RabbitMQConstants.API_EXCHANGE, true, false);
 	}
 
 	@Bean
-	public Queue authQueue() {
-		return new Queue(RabbitMQConstants.AUTH_QUEUE, false);
+	public DirectExchange serviceExchange() {
+		// 첫 번째 매개변수: 교환기 이름
+		// 두 번째 매개변수: durable (true로 설정하면 RabbitMQ 서버가 재시작되어도 교환기가 유지됨)
+		// 세 번째 매개변수: autoDelete (자동 삭제 여부)
+		return new DirectExchange(RabbitMQConstants.SERVICE_EXCHANGE, true, false);
 	}
 
 	@Bean
-	public Queue authResponseQueue() {
-		return new Queue(RabbitMQConstants.GATEWAY_QUEUE, false);
+	public Queue authApiQueue() {
+		return new Queue(RabbitMQConstants.AUTH_API_QUEUE, false);
 	}
 
 	@Bean
-	public Binding authBinding(Queue authQueue, TopicExchange authExchange) {
-		return BindingBuilder.bind(authQueue).to(authExchange).with(RabbitMQConstants.AUTH_ROUTING_KEY);
+	public Queue authServiceQueue() {
+		return new Queue(RabbitMQConstants.AUTH_SERVICE_QUEUE, false);
 	}
 
 	@Bean
-	public Binding authResponseBinding(Queue authResponseQueue, TopicExchange authExchange) {
-		return BindingBuilder.bind(authResponseQueue).to(authExchange).with(RabbitMQConstants.AUTH_RESPONSE_ROUTING_KEY);
+	public Binding authApiBinding(Queue authApiQueue, DirectExchange apiExchange) {
+		return BindingBuilder.bind(authApiQueue).to(apiExchange).with(RabbitMQConstants.AUTH_API_ROUTING_KEY);
 	}
 
+	@Bean
+	public Binding authServiceBinding(Queue authServiceQueue, DirectExchange serviceExchange) {
+		return BindingBuilder.bind(authServiceQueue).to(serviceExchange).with(RabbitMQConstants.AUTH_SERVICE_ROUTING_KEY);
+	}
+
+
+	// JSON 메시지 변환기
 	@Bean
 	public MessageConverter jsonMessageConverter() {
 		return new Jackson2JsonMessageConverter();
 	}
 
+	// RabbitTemplate 설정
 	@Bean
 	public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
 		RabbitTemplate template = new RabbitTemplate(connectionFactory);
