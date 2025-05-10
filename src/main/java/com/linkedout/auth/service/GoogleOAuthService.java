@@ -9,13 +9,11 @@ import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import com.linkedout.auth.repository.AccountRepository;
 import com.linkedout.auth.utils.JwtUtil;
-import com.linkedout.common.constant.RabbitMQConstants;
 import com.linkedout.common.dto.auth.AuthResponse;
 import com.linkedout.common.dto.auth.oauth.google.GoogleOAuthResponse;
 import com.linkedout.common.dto.auth.oauth.google.GoogleUserInfo;
 import com.linkedout.common.entity.Account;
 import com.linkedout.common.exception.BadRequestException;
-import com.linkedout.common.messaging.ServiceMessageClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -40,7 +38,6 @@ public class GoogleOAuthService {
 	private final RestTemplate restTemplate;
 	private final ObjectMapper objectMapper;
 	private final AccountRepository accountRepository;
-	private final ServiceMessageClient serviceMessageClient;
 
 	// 안드로이드용 클라이언트 ID 추가
 	@Value("${google.oauth2.android.client-id}")

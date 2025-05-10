@@ -24,46 +24,47 @@ import java.util.HashMap;
 @RequiredArgsConstructor
 public class AuthApiConsumer {
 
-	private final RabbitTemplate rabbitTemplate;
-	private final AuthService authService;
-	private final ErrorResponseBuilder errorResponseBuilder;
+    private final RabbitTemplate rabbitTemplate;
+    private final AuthService authService;
+    private final ErrorResponseBuilder errorResponseBuilder;
 
 
-	@RabbitListener(queues = RabbitMQConstants.AUTH_API_QUEUE)
-	public void processApiRequest(ApiRequestData request, @Header(AmqpHeaders.CORRELATION_ID) String correlationId) {
-		log.info("받은 요청: {}, correlationId: {}", request, correlationId);
+    @RabbitListener(queues = RabbitMQConstants.AUTH_API_QUEUE)
+    public void processApiRequest(ApiRequestData request, @Header(AmqpHeaders.CORRELATION_ID) String correlationId) {
+        log.info("받은 요청: {}, correlationId: {}", request, correlationId);
 
 
-		ApiResponseData response = new ApiResponseData();
-		response.setCorrelationId(correlationId);
-		response.setHeaders(new HashMap<>());
+        ApiResponseData response = new ApiResponseData();
+        response.setCorrelationId(correlationId);
+        response.setHeaders(new HashMap<>());
 
-		// 요청 처리를 Mono로 래핑
-		Mono.fromCallable(() -> {
-				try {
-					String path = request.getPath();
-					String method = request.getMethod();
-					String requestKey = method + " " + path;
+        // 요청 처리를 Mono로 래핑
+        Mono.fromCallable(() -> {
+                    try {
+                        String path = request.getPath();
+                        String method = request.getMethod();
+                        String requestKey = method + " " + path;
 
-					switch (requestKey) {
-						case "GET /api/auth/health" -> authService.health(request, response);
-						case "POST /api/auth/google/android" -> authService.processOAuthRequest(request, response);
-						default -> errorResponseBuilder.populateErrorResponse(response, 404, "요청을 처리할 수 없습니다: " + requestKey);
-					}
-				} catch (BaseException ex) {
-					errorResponseBuilder.populateErrorResponse(response, ex.getStatusCode(), ex.getMessage());
-				}
-				return response;
-			})
-			.subscribeOn(Schedulers.boundedElastic())  // IO 작업은 boundedElastic 스케줄러에서 실행
-			.subscribe(completedResponse -> {
-				// 응답 전송
-				rabbitTemplate.convertAndSend(
-					RabbitMQConstants.API_EXCHANGE,
-					RabbitMQConstants.API_RESPONSE_ROUTING_KEY,
-					completedResponse
-				);
-				log.info("응답 전송: {}", completedResponse);
-			});
-	}
+                        switch (requestKey) {
+                            case "GET /api/auth/health" -> authService.health(request, response);
+                            case "POST /api/auth/google/android" -> authService.processOAuthRequest(request, response);
+                            default ->
+                                    errorResponseBuilder.populateErrorResponse(response, 404, "요청을 처리할 수 없습니다: " + requestKey);
+                        }
+                    } catch (BaseException ex) {
+                        errorResponseBuilder.populateErrorResponse(response, ex.getStatusCode(), ex.getMessage());
+                    }
+                    return response;
+                })
+                .subscribeOn(Schedulers.boundedElastic())  // IO 작업은 boundedElastic 스케줄러에서 실행
+                .subscribe(completedResponse -> {
+                    // 응답 전송
+                    rabbitTemplate.convertAndSend(
+                            RabbitMQConstants.API_EXCHANGE,
+                            RabbitMQConstants.API_GATEWAY_ROUTING_KEY,
+                            completedResponse
+                    );
+                    log.info("응답 전송: {}", completedResponse);
+                });
+    }
 }
