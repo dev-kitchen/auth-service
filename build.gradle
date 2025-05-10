@@ -67,6 +67,8 @@ dependencies {
 	implementation 'org.postgresql:postgresql:42.7.2'
 
 	implementation 'com.linkedout:common:0.0.1'
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
 }
 
 tasks.named('test') {

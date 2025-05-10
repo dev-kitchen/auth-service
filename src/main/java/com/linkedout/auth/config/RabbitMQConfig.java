@@ -36,24 +36,37 @@ public class RabbitMQConfig {
 		return new DirectExchange(RabbitMQConstants.SERVICE_EXCHANGE, true, false);
 	}
 
+	// 외부 요청
 	@Bean
-	public Queue authApiQueue() {
+	public Queue apiQueue() {
 		return new Queue(RabbitMQConstants.AUTH_API_QUEUE, false);
 	}
 
 	@Bean
-	public Queue authServiceQueue() {
-		return new Queue(RabbitMQConstants.AUTH_SERVICE_QUEUE, false);
+	public Binding apiBinding(Queue apiQueue, DirectExchange apiExchange) {
+		return BindingBuilder.bind(apiQueue).to(apiExchange).with(RabbitMQConstants.AUTH_API_ROUTING_KEY);
+	}
+
+	// 소비자
+	@Bean
+	public Queue consumerQueue() {
+		return new Queue(RabbitMQConstants.AUTH_SERVICE_CONSUMER_QUEUE, false);
 	}
 
 	@Bean
-	public Binding authApiBinding(Queue authApiQueue, DirectExchange apiExchange) {
-		return BindingBuilder.bind(authApiQueue).to(apiExchange).with(RabbitMQConstants.AUTH_API_ROUTING_KEY);
+	public Binding consumerBinding(Queue consumerQueue, DirectExchange serviceExchange) {
+		return BindingBuilder.bind(consumerQueue).to(serviceExchange).with(RabbitMQConstants.AUTH_CONSUMER_ROUTING_KEY);
+	}
+
+	// 리스너
+	@Bean
+	public Queue listenerQueue() {
+		return new Queue(RabbitMQConstants.AUTH_SERVICE_LISTENER_QUEUE, false);
 	}
 
 	@Bean
-	public Binding authServiceBinding(Queue authServiceQueue, DirectExchange serviceExchange) {
-		return BindingBuilder.bind(authServiceQueue).to(serviceExchange).with(RabbitMQConstants.AUTH_SERVICE_ROUTING_KEY);
+	public Binding listenerBinding(Queue listenerQueue, DirectExchange serviceExchange) {
+		return BindingBuilder.bind(listenerQueue).to(serviceExchange).with(RabbitMQConstants.AUTH_LISTENER_ROUTING_KEY);
 	}
 
 

@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
 import java.io.IOException;
-import java.util.HashMap;
 
 
 @Slf4j
@@ -21,16 +20,6 @@ import java.util.HashMap;
 @RequiredArgsConstructor
 public class AuthController {
 	private final GoogleOAuthService googleOAuthService;
-
-	@PostMapping("/test")
-	public Mono<ApiResponseData> test() {
-		ApiResponseData response = new ApiResponseData();
-		response.setStatusCode(200);
-		response.setHeaders(new HashMap<>());
-		response.getHeaders().put("Content-Type", "application/json");
-		response.setBody("{\"success\":true,\"message\":\"I'm alive\"}");
-		return Mono.just(response);
-	}
 
 	@GetMapping("/google")
 	public void googleLogin(HttpServletResponse response) throws IOException {
