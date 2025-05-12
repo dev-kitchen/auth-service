@@ -2,18 +2,14 @@ package com.linkedout.auth.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken.Payload;
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
-import com.google.api.client.http.javanet.NetHttpTransport;
-import com.google.api.client.json.gson.GsonFactory;
 import com.linkedout.auth.repository.AccountRepository;
 import com.linkedout.auth.utils.JwtUtil;
+import com.linkedout.common.dto.account.AccountDTO;
 import com.linkedout.common.dto.auth.AuthResponse;
 import com.linkedout.common.dto.auth.oauth.google.GoogleOAuthResponse;
 import com.linkedout.common.dto.auth.oauth.google.GoogleUserInfo;
 import com.linkedout.common.entity.Account;
-import com.linkedout.common.exception.BadRequestException;
+import com.linkedout.common.messaging.ServiceMessageClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,11 +18,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
+import reactor.core.publisher.Mono;
 
-import java.io.IOException;
-import java.security.GeneralSecurityException;
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -38,10 +34,8 @@ public class GoogleOAuthService {
 	private final RestTemplate restTemplate;
 	private final ObjectMapper objectMapper;
 	private final AccountRepository accountRepository;
+	private final ServiceMessageClient serviceMessageClient;
 
-	// 안드로이드용 클라이언트 ID 추가
-	@Value("${google.oauth2.android.client-id}")
-	private String androidClientId;
 
 	@Value("${spring.security.oauth2.client.registration.google.client-id}")
 	private String clientId;
@@ -117,21 +111,34 @@ public class GoogleOAuthService {
 	 */
 	public AuthResponse loginOrSignup(GoogleUserInfo userInfo) {
 		// 이메일로 사용자 조회
-		// todo Account 분리
-//		Account acount = serviceMessageClient.sendMessage(RabbitMQConstants.ACCOUNT_SERVICE_QUEUE, request, AccountDTO.class).flatMqp()
-		Account account = accountRepository.findByEmail(userInfo.getEmail())
-			.orElseGet(() -> createUser(userInfo));  // 없으면 새로 생성
+		AccountDTO account = serviceMessageClient.sendMessage("account", "findByEmail", userInfo.getEmail(), AccountDTO.class)
+			.doOnNext(existingAccount -> log.info("계정 조회 결과: {}", existingAccount))
+			.switchIfEmpty(Mono.defer(() -> {
+				log.info("계정이 존재하지 않음. 새로 생성합니다.");
+				return serviceMessageClient.sendMessage("account", "createAccount", userInfo, AccountDTO.class);
+			}))
+			.onErrorMap(e -> new RuntimeException("계정 조회/생성 중 오류 발생", e))
+			.block();
 
+		if (account == null) {
+			throw new RuntimeException("계정을 생성할 수 없습니다.");
+		}
 
+		// 역할 추가
+		List<String> roles = new ArrayList<>();
+		roles.add("ROLE_USER");  // 기본 역할
+
+		// todo 등록된 조리기구..?
 		// JWT 토큰 발급
-		// todo 사용자 아이디 추가
 		Map<String, Object> claims = new HashMap<>();
+		claims.put("accountId", account.getId());
 		claims.put("email", account.getEmail());
 		claims.put("name", account.getName());
-		claims.put("accountId", account.getId());
+		claims.put("roles", roles);
 
-		String accessToken = jwtUtil.generateToken(claims, account.getEmail());
-		String refreshToken = jwtUtil.generateRefreshToken(account.getEmail());
+
+		String accessToken = jwtUtil.generateToken(claims, account.getId());
+		String refreshToken = jwtUtil.generateRefreshToken(account.getId());
 
 
 		return AuthResponse.builder()
@@ -156,57 +163,4 @@ public class GoogleOAuthService {
 			.providerId(userInfo.getSub())
 			.build();
 	}
-
-	/**
-	 * 안드로이드 앱에서 받은 구글 OAuth 코드를 처리
-	 * 안드로이드 클라이언트 ID 사용
-	 */
-	public GoogleOAuthResponse processAndroidOAuthCode(String idTokenString) {
-		try {
-			// 1. ID 토큰 검증
-			GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(
-				new NetHttpTransport(), GsonFactory.getDefaultInstance())
-				.setAudience(Collections.singletonList(androidClientId))
-				.build();
-
-			GoogleIdToken idToken = verifier.verify(idTokenString);
-			if (idToken == null) {
-				throw new IllegalArgumentException("유효하지 않은 ID 토큰입니다.");
-			}
-
-			// 2. 사용자 정보 추출
-			Payload payload = idToken.getPayload();
-			String email = payload.getEmail();
-			String name = (String) payload.get("name");
-			String picture = (String) payload.get("picture");
-
-			// 이미 존재하는 계정인지 확인, 없으면 생성해야함
-
-			// 4. 자체 JWT 토큰 발급
-			// todo 사용자 아이디 추가
-			Map<String, Object> claims = new HashMap<>();
-			claims.put("email", email);
-			claims.put("name", name);
-//			claims.put("accountId", account.getId());
-
-
-			String accessToken = jwtUtil.generateToken(claims, email);
-			String refreshToken = jwtUtil.generateRefreshToken(email);
-
-
-			return GoogleOAuthResponse.builder()
-				.accessToken(accessToken)
-				.refreshToken(refreshToken)
-				.email(email)
-				.name((String) payload.get("name"))
-				.picture((String) payload.get("picture"))
-				.build();
-
-		} catch (IOException | GeneralSecurityException e) {
-			log.error("Google OAuth 처리 중 오류 발생", e);
-			throw new BadRequestException("Google OAuth 처리 중 오류가 발생했습니다: " + e.getMessage());
-		}
-	}
-
-
 }

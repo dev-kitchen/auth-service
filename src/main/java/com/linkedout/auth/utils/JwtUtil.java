@@ -27,23 +27,23 @@ public class JwtUtil {
 		return Keys.hmacShaKeyFor(keyBytes);
 	}
 
-	public String generateToken(String email) {
-		return generateToken(new HashMap<>(), email);
+	public String generateToken(Long id) {
+		return generateToken(new HashMap<>(), id);
 	}
 
-	public String generateToken(Map<String, Object> claims, String subject) {
+	public String generateToken(Map<String, Object> claims, Long subject) {
 		return Jwts.builder()
 			.setClaims(claims)
-			.setSubject(subject)
+			.setSubject(String.valueOf(subject))
 			.setIssuedAt(new Date())
 			.setExpiration(new Date(System.currentTimeMillis() + expiration))
 			.signWith(getSigningKey(), SignatureAlgorithm.HS256)
 			.compact();
 	}
-    
-	public String generateRefreshToken(String email) {
+
+	public String generateRefreshToken(Long id) {
 		return Jwts.builder()
-			.setSubject(email)
+			.setSubject(String.valueOf(id))
 			.setIssuedAt(new Date())
 			.setExpiration(new Date(System.currentTimeMillis() + expiration * 12)) // 리프레시 토큰은 더 오래 유지
 			.signWith(getSigningKey(), SignatureAlgorithm.HS256)

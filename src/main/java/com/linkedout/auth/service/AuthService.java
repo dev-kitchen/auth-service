@@ -43,7 +43,7 @@ public class AuthService {
 		testRequest.setMessage("테스트 메시지");
 		return messageClient.sendMessage("account", "test", testRequest, String.class)
 			.doOnNext(result -> {
-				response.setStatusCode(202);
+				response.setStatusCode(200);
 				response.setHeaders(new HashMap<>());
 				response.getHeaders().put("Content-Type", "application/json");
 				response.setBody(result);
@@ -52,33 +52,5 @@ public class AuthService {
 				errorResponseBuilder.populateErrorResponse(response, 500, "서비스 통신 오류");
 			})
 			.then();
-	}
-
-
-	/**
-	 * 안드로이드용 구글 OAuth 요청을 처리하는 메서드
-	 * 클라이언트에서 받은 인증 코드를 안드로이드 클라이언트 ID로 검증하고 AT/RT 발급
-	 */
-	public void processOAuthRequest(ApiRequestData request, ApiResponseData response) {
-		GoogleOAuthRequest oauthRequest;
-		try {
-			oauthRequest = objectMapper.readValue(request.getBody(), GoogleOAuthRequest.class);
-		} catch (JsonProcessingException e) {
-			// 예외 처리기가 처리하도록 throw
-			throw new BadRequestException("잘못된 요청 형식입니다: " + e.getMessage());
-		}
-
-		// 안드로이드용 구글 OAuth 코드 처리 및 토큰 발급
-		GoogleOAuthResponse result = googleOAuthService.processAndroidOAuthCode(oauthRequest.getIdToken());
-
-		// 응답 생성
-		response.setStatusCode(200);
-		response.setHeaders(new HashMap<>());
-		response.getHeaders().put("Content-Type", "application/json");
-		try {
-			response.setBody(objectMapper.writeValueAsString(result));
-		} catch (JsonProcessingException e) {
-			throw new InternalServerErrorException("응답 생성 중 오류 발생: " + e.getMessage());
-		}
 	}
 }
