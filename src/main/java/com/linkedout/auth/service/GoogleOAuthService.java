@@ -2,13 +2,11 @@ package com.linkedout.auth.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.linkedout.auth.repository.AccountRepository;
 import com.linkedout.auth.utils.JwtUtil;
 import com.linkedout.common.dto.account.AccountDTO;
 import com.linkedout.common.dto.auth.AuthResponse;
 import com.linkedout.common.dto.auth.oauth.google.GoogleOAuthResponse;
 import com.linkedout.common.dto.auth.oauth.google.GoogleUserInfo;
-import com.linkedout.common.entity.Account;
 import com.linkedout.common.messaging.ServiceMessageClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,7 +31,6 @@ public class GoogleOAuthService {
 	private final JwtUtil jwtUtil;
 	private final RestTemplate restTemplate;
 	private final ObjectMapper objectMapper;
-	private final AccountRepository accountRepository;
 	private final ServiceMessageClient serviceMessageClient;
 
 
@@ -111,6 +108,7 @@ public class GoogleOAuthService {
 	 */
 	public AuthResponse loginOrSignup(GoogleUserInfo userInfo) {
 		// 이메일로 사용자 조회
+		log.info("꺄앙");
 		AccountDTO account = serviceMessageClient.sendMessage("account", "findByEmail", userInfo.getEmail(), AccountDTO.class)
 			.doOnNext(existingAccount -> log.info("계정 조회 결과: {}", existingAccount))
 			.switchIfEmpty(Mono.defer(() -> {
@@ -120,6 +118,7 @@ public class GoogleOAuthService {
 			.onErrorMap(e -> new RuntimeException("계정 조회/생성 중 오류 발생", e))
 			.block();
 
+		log.info("여기보슈: {}", account);
 		if (account == null) {
 			throw new RuntimeException("계정을 생성할 수 없습니다.");
 		}
@@ -147,20 +146,6 @@ public class GoogleOAuthService {
 			.email(account.getEmail())
 			.name(account.getName())
 			.profileImage(account.getPicture())
-			.build();
-	}
-
-	/**
-	 * 신규 사용자 생성
-	 */
-	// todo Account 분리
-	private Account createUser(GoogleUserInfo userInfo) {
-		return Account.builder()
-			.email(userInfo.getEmail())
-			.name(userInfo.getName())
-			.picture(userInfo.getPicture())
-			.provider("google")
-			.providerId(userInfo.getSub())
 			.build();
 	}
 }
