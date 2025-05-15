@@ -1,21 +1,18 @@
 package com.linkedout.auth.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.linkedout.common.dto.ApiRequestData;
-import com.linkedout.common.dto.ApiResponseData;
-import com.linkedout.common.dto.auth.oauth.google.GoogleOAuthRequest;
-import com.linkedout.common.dto.auth.oauth.google.GoogleOAuthResponse;
-import com.linkedout.common.exception.BadRequestException;
+import com.linkedout.auth.utils.JwtUtil;
 import com.linkedout.common.exception.ErrorResponseBuilder;
-import com.linkedout.common.exception.InternalServerErrorException;
 import com.linkedout.common.messaging.ServiceMessageClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -26,31 +23,31 @@ public class AuthService {
 	private final ServiceMessageClient messageClient;
 	private final GoogleOAuthService googleOAuthService;
 	private final ErrorResponseBuilder errorResponseBuilder;
+	private final JwtUtil jwtUtil;
 
-	public Mono<Void> health(ApiRequestData request, ApiResponseData response) {
-		response.setStatusCode(200); // OK
-		response.setHeaders(new HashMap<>());
-		response.getHeaders().put("Content-Type", "application/json");
-
-		String responseBody = "{\"success\":true,\"message\":\"I'm alive\"}";
-		response.setBody(responseBody);
-		return Mono.empty();
+	public Mono<String> health() {
+		return Mono.just("ok");
 	}
 
-
-	public Mono<Void> test(ApiRequestData request, ApiResponseData response) {
+	public Mono<String> test() {
 		TestDto testRequest = new TestDto();
 		testRequest.setMessage("테스트 메시지");
-		return messageClient.sendMessage("account", "test", testRequest, String.class)
-			.doOnNext(result -> {
-				response.setStatusCode(200);
-				response.setHeaders(new HashMap<>());
-				response.getHeaders().put("Content-Type", "application/json");
-				response.setBody(result);
-			})
-			.doOnError(error -> {
-				errorResponseBuilder.populateErrorResponse(response, 500, "서비스 통신 오류");
-			})
-			.then();
+		return messageClient.sendMessage("account", "getTest", testRequest, String.class);
 	}
+
+	public Mono<String> testToken(){
+		Map<String, Object> claims = new HashMap<>();
+		claims.put("accountId", 4);
+		claims.put("email", "daechan476@gmail.com");
+		claims.put("name", "DaeChan Jo");
+
+		List<String> roles = Collections.singletonList("ROLE_USER");
+		claims.put("roles", roles);
+
+		String accessToken = jwtUtil.generateToken(claims, 4L);
+		String refreshToken = jwtUtil.generateRefreshToken(4L);
+
+		return Mono.just(accessToken);
+
+	};
 }
