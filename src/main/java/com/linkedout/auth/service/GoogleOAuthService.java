@@ -5,9 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedout.auth.utils.JwtUtil;
 import com.linkedout.common.messaging.ServiceMessageClient;
 import com.linkedout.common.model.dto.account.AccountDTO;
-import com.linkedout.common.model.dto.auth.AuthResponse;
-import com.linkedout.common.model.dto.auth.oauth.google.GoogleOAuthResponse;
-import com.linkedout.common.model.dto.auth.oauth.google.GoogleUserInfo;
+import com.linkedout.common.model.dto.auth.AuthResponseDTO;
+import com.linkedout.common.model.dto.auth.oauth.google.GoogleOAuthResponseDTO;
+import com.linkedout.common.model.dto.auth.oauth.google.GoogleUserInfoDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -58,7 +58,7 @@ public class GoogleOAuthService {
 	/**
 	 * 구글 인증 코드로 액세스 토큰 요청
 	 */
-	public GoogleOAuthResponse getGoogleToken(String code) {
+	public GoogleOAuthResponseDTO getGoogleToken(String code) {
 		String tokenUrl = "https://oauth2.googleapis.com/token";
 
 		HttpHeaders headers = new HttpHeaders();
@@ -77,7 +77,7 @@ public class GoogleOAuthService {
 			restTemplate.postForEntity(tokenUrl, requestEntity, String.class);
 
 		try {
-			return objectMapper.readValue(response.getBody(), GoogleOAuthResponse.class);
+			return objectMapper.readValue(response.getBody(), GoogleOAuthResponseDTO.class);
 		} catch (JsonProcessingException e) {
 			throw new RuntimeException("토큰 응답 파싱 오류", e);
 		}
@@ -86,7 +86,7 @@ public class GoogleOAuthService {
 	/**
 	 * 액세스 토큰으로 구글 사용자 정보 요청
 	 */
-	public GoogleUserInfo getGoogleUserInfo(String accessToken) {
+	public GoogleUserInfoDTO getGoogleUserInfo(String accessToken) {
 		String userInfoUrl = "https://www.googleapis.com/oauth2/v3/userinfo";
 
 		HttpHeaders headers = new HttpHeaders();
@@ -98,7 +98,7 @@ public class GoogleOAuthService {
 			restTemplate.exchange(userInfoUrl, HttpMethod.GET, requestEntity, String.class);
 
 		try {
-			return objectMapper.readValue(response.getBody(), GoogleUserInfo.class);
+			return objectMapper.readValue(response.getBody(), GoogleUserInfoDTO.class);
 		} catch (JsonProcessingException e) {
 			throw new RuntimeException("사용자 정보 파싱 오류", e);
 		}
@@ -107,7 +107,7 @@ public class GoogleOAuthService {
 	/**
 	 * 사용자 정보로 로그인 또는 회원가입 처리
 	 */
-	public AuthResponse loginOrSignup(GoogleUserInfo userInfo) {
+	public AuthResponseDTO loginOrSignup(GoogleUserInfoDTO userInfo) {
 		// 이메일로 사용자 조회
 		AccountDTO account =
 			messageClient
@@ -142,7 +142,7 @@ public class GoogleOAuthService {
 		String accessToken = jwtUtil.generateToken(claims, account.getId());
 		String refreshToken = jwtUtil.generateRefreshToken(account.getId());
 
-		return AuthResponse.builder()
+		return AuthResponseDTO.builder()
 			.accessToken(accessToken)
 			.refreshToken(refreshToken)
 			.email(account.getEmail())

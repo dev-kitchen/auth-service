@@ -1,9 +1,9 @@
 package com.linkedout.auth.api;
 
 import com.linkedout.auth.service.GoogleOAuthService;
-import com.linkedout.common.model.dto.auth.AuthResponse;
-import com.linkedout.common.model.dto.auth.oauth.google.GoogleOAuthResponse;
-import com.linkedout.common.model.dto.auth.oauth.google.GoogleUserInfo;
+import com.linkedout.common.model.dto.auth.AuthResponseDTO;
+import com.linkedout.common.model.dto.auth.oauth.google.GoogleOAuthResponseDTO;
+import com.linkedout.common.model.dto.auth.oauth.google.GoogleUserInfoDTO;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,13 +28,13 @@ public class AuthController {
 	public void googleCallback(@RequestParam String code, HttpServletResponse response)
 		throws IOException {
 		// 코드로 토큰 교환
-		GoogleOAuthResponse tokenResponse = googleOAuthService.getGoogleToken(code);
+		GoogleOAuthResponseDTO tokenResponse = googleOAuthService.getGoogleToken(code);
 
 		// 토큰으로 사용자 정보 가져오기
-		GoogleUserInfo userInfo = googleOAuthService.getGoogleUserInfo(tokenResponse.getAccessToken());
+		GoogleUserInfoDTO userInfo = googleOAuthService.getGoogleUserInfo(tokenResponse.getAccessToken());
 
 		// 사용자 정보로 로그인 또는 회원가입 처리
-		AuthResponse authResponse = googleOAuthService.loginOrSignup(userInfo);
+		AuthResponseDTO authResponse = googleOAuthService.loginOrSignup(userInfo);
 
 		String redirectUrl =
 			"devKitchen://oauthredirect"

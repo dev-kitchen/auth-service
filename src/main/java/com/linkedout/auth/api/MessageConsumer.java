@@ -72,8 +72,7 @@ public class MessageConsumer {
 		// 작업 타입에 따른 리액티브 처리 분기
 		Mono<?> resultMono =
 			switch (operation) {
-				case "getTest" -> authService.test();
-				case "getTestToken" -> authService.testToken();
+				case "getTestToken" -> authService.getTestToken();
 				default -> Mono.error(new UnsupportedOperationException("지원하지 않는 작업: " + operation));
 			};
 

@@ -25,17 +25,8 @@ public class AuthService {
 	private final ErrorResponseBuilder errorResponseBuilder;
 	private final JwtUtil jwtUtil;
 
-	public Mono<String> health() {
-		return Mono.just("ok");
-	}
 
-	public Mono<String> test() {
-		TestDto testRequest = new TestDto();
-		testRequest.setMessage("테스트 메시지");
-		return messageClient.sendMessage("account", "getTest", testRequest, String.class);
-	}
-
-	public Mono<String> testToken(){
+	public Mono<String> getTestToken() {
 		Map<String, Object> claims = new HashMap<>();
 		claims.put("accountId", 4);
 		claims.put("email", "daechan476@gmail.com");
@@ -49,5 +40,7 @@ public class AuthService {
 
 		return Mono.just(accessToken);
 
-	};
+	}
+
+	;
 }
