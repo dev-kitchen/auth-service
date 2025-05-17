@@ -39,8 +39,5 @@ public class AuthService {
 		String refreshToken = jwtUtil.generateRefreshToken(4L);
 
 		return Mono.just(accessToken);
-
 	}
-
-	;
 }

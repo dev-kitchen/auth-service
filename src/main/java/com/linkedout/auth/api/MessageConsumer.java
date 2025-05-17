@@ -1,16 +1,16 @@
 package com.linkedout.auth.api;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.linkedout.auth.service.AuthService;
+import com.linkedout.auth.api.messaging.MessageErrorHandler;
+import com.linkedout.auth.api.messaging.MessageProcessor;
+import com.linkedout.auth.api.messaging.MessageSender;
+import com.linkedout.auth.api.messaging.ResponseFactory;
 import com.linkedout.common.constant.RabbitMQConstants;
 import com.linkedout.common.exception.ErrorResponseBuilder;
-import com.linkedout.common.messaging.ServiceIdentifier;
 import com.linkedout.common.model.dto.ServiceMessageDTO;
-import com.linkedout.common.util.converter.PayloadConverter;
+import com.linkedout.common.model.dto.auth.AuthenticationDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -21,39 +21,25 @@ import reactor.core.scheduler.Schedulers;
  *
  * <p>이 클래스의 책임: - 다른 마이크로서비스로부터의 메시지 리스닝 - 지정된 작업에 따른 수신 서비스 요청 처리 - {@link ErrorResponseBuilder}를
  * 사용한 오류 처리 및 오류 응답 구성 - `replyTo` 필드에 지정된 응답 큐로 성공 또는 오류 응답 전송
- *
- * <p>의존성: - {@link RabbitTemplate} : 응답 메시지 전송용 - {@link } : 계정 기반 작업 수행용 - {@link
- * ErrorResponseBuilder} : 구조화된 오류 응답 생성용 - {@link ServiceIdentifier} : 응답을 보내는 서비스 이름 식별용 - {@link
- * ObjectMapper} : JSON 처리용 - {@link PayloadConverter} : 페이로드 데이터를 특정 객체 타입으로 변환용
- *
- * <p>이 컴포넌트의 어노테이션: - {@link Component} : 스프링 관리 컴포넌트 표시 - {@link Slf4j} : 클래스 내 로깅 활성화 - {@link
- * RequiredArgsConstructor} : final 필드의 의존성 주입
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class MessageConsumer {
-	private final RabbitTemplate rabbitTemplate;
-	private final AuthService authService;
-	private final ErrorResponseBuilder errorResponseBuilder;
-	private final ServiceIdentifier serviceIdentifier;
-	private final ObjectMapper objectMapper;
-	private final PayloadConverter payloadConverter;
+	private final MessageProcessor messageProcessor;
+	private final ResponseFactory responseFactory;
+	private final MessageErrorHandler errorHandler;
+	private final MessageSender messageSender;
+
 
 	/**
-	 * ACCOUNT_SERVICE_CONSUMER_QUEUE로부터 서비스 요청 메시지를 소비하고 처리합니다.
+	 * 지정된 큐에서 수신되는 서비스 요청을 처리합니다. 이 메서드는 메시지를 수신하여
+	 * 상관관계 ID, 작업 유형, 발신자 서비스, 응답 대상, 페이로드, 인증 정보와 같은
+	 * 관련 정보를 추출하고 작업 처리를 {@code messageProcessor}에 위임합니다.
+	 * 처리 결과나 오류를 기반으로 응답을 생성하여 `replyTo` 주소로 전송합니다.
 	 *
-	 * <p>메서드 처리 순서: <br>
-	 * 1. 수신된 메시지에서 correlationId, operation, senderService, replyTo 필드를 추출 <br>
-	 * 2. operation타입에 따라 적절한 AccountService 메서드를 호출하여 요청된 작업을 수행 <br>
-	 * 3. 처리 결과를 ServiceMessageDTO에 담아 송신 서비스의 응답 큐로 전송
-	 *
-	 * <p>오류 처리: - 작업 처리 중 발생한 예외는 오류 메시지와 함께 응답 DTO에 포함 - 지원하지 않는 operation인 경우
-	 * UnsupportedOperationException 발생 - 모든 오류는 로깅되며 클라이언트에게 적절한 오류 응답 전송
-	 *
-	 * @param requestMessage 처리할 서비스 요청 메시지로 다음 필드들을 포함: - correlationId: 요청-응답 매칭을 위한 고유 식별자 -
-	 *                       senderService: 요청을 보낸 서비스의 식별자 - operation: 수행할 작업 유형 (test/findByEmail/createAccount) -
-	 *                       replyTo: 응답을 전송할 큐 이름 - payload: 작업에 필요한 데이터
+	 * @param requestMessage 실행할 작업, 발신자 서비스 정보, 페이로드, 인증 정보 등을
+	 *                       포함하는 서비스 메시지
 	 */
 	@RabbitListener(queues = RabbitMQConstants.AUTH_SERVICE_CONSUMER_QUEUE)
 	public void processServiceRequest(ServiceMessageDTO<?> requestMessage) {
@@ -61,83 +47,44 @@ public class MessageConsumer {
 		String operation = requestMessage.getOperation();
 		String senderService = requestMessage.getSenderService();
 		String replyTo = requestMessage.getReplyTo();
+		Object payload = requestMessage.getPayload();
+		AuthenticationDTO accountInfo = requestMessage.getAuthentication();
 
-		log.info(
-			"서비스 요청 수신: correlationId={}, operation={}, sender={}, replyTo={}",
+		log.debug(
+			"서비스 요청 수신: correlationId={}, operation={}, sender={}, replyTo={}, authenticationDTO={}, payload={}",
 			correlationId,
 			operation,
 			senderService,
-			replyTo);
+			replyTo,
+			accountInfo,
+			payload);
 
-		// 작업 타입에 따른 리액티브 처리 분기
-		Mono<?> resultMono =
-			switch (operation) {
-				case "getTestToken" -> authService.getTestToken();
-				default -> Mono.error(new UnsupportedOperationException("지원하지 않는 작업: " + operation));
-			};
+		Mono<ServiceMessageDTO<Object>> responseMono = messageProcessor
+			.processOperation(operation, requestMessage, accountInfo)
+			.map(result -> responseFactory.createSuccessResponse(correlationId, operation, result))
+			.switchIfEmpty(Mono.just(responseFactory.createEmptyResponse(correlationId, operation)))
+			.onErrorResume(e -> errorHandler.handleError(e, correlationId, operation));
 
-		resultMono
-			.map(
-				result -> {
-					log.info("서비스로직 완료, 응답생성. 결과: {}", result);
+		processResponse(responseMono, correlationId, replyTo);
+	}
 
-					return ServiceMessageDTO.builder()
-						.correlationId(correlationId)
-						.senderService(serviceIdentifier.getServiceName())
-						.operation(operation + "Response")
-						.payload(result)
-						.build();
-				})
-			.onErrorResume(
-				e -> {
-					log.error("서비스 요청 처리 오류: operation={}, error={}", operation, e.getMessage(), e);
-
-					// 오류 응답 메시지 생성
-					ServiceMessageDTO<Object> errorResponse =
-						ServiceMessageDTO.builder()
-							.correlationId(correlationId)
-							.senderService(serviceIdentifier.getServiceName())
-							.operation(operation + "Response")
-							.error(e.getMessage())
-							.build();
-
-					return Mono.just(errorResponse);
-				})
+	/**
+	 * 서비스 요청에 대해 생성된 응답을 처리합니다. 주어진 {@code Mono}를 구독하여
+	 * 해결된 응답을 발신자 서비스로 전송하고 처리 중 발생하는 오류를 처리합니다.
+	 *
+	 * @param responseMono  전송할 응답 데이터를 포함하는 리액티브 발행자
+	 * @param correlationId 요청과 응답을 연결하는 고유 식별자
+	 * @param replyTo       응답을 전송할 주소나 큐
+	 */
+	private void processResponse(Mono<ServiceMessageDTO<Object>> responseMono, String correlationId, String replyTo) {
+		responseMono
 			.subscribeOn(Schedulers.boundedElastic())
 			.subscribe(
-				response -> {
-					// 응답 메시지 전송
-					log.info(
-						"서비스 응답 전송: correlationId={}, replyTo={}, 응답타입={}",
-						correlationId,
-						replyTo,
-						(response.getError() != null ? "오류" : "성공"));
-
-					rabbitTemplate.convertAndSend(
-						RabbitMQConstants.SERVICE_EXCHANGE,
-						replyTo, // 요청의 replyTo 필드 사용
-						response);
-
-					log.info("서비스 응답 전송 완료: correlationId={}", correlationId);
-				},
+				response -> messageSender.sendResponse(response, correlationId, replyTo),
 				error -> {
-					log.error(
-						"서비스 응답 생성 실패: correlationId={}, error={}",
-						correlationId,
-						error.getMessage(),
-						error);
-
-					// 오류 응답 생성 및 전송
-					ServiceMessageDTO<Object> errorResponse =
-						ServiceMessageDTO.builder()
-							.correlationId(correlationId)
-							.senderService(serviceIdentifier.getServiceName())
-							.operation(operation + "Response")
-							.error("내부 서버 오류: " + error.getMessage())
-							.build();
-
-					rabbitTemplate.convertAndSend(
-						RabbitMQConstants.SERVICE_EXCHANGE, replyTo, errorResponse);
+					log.error("응답 처리 중 오류 발생: {}", error.getMessage(), error);
+					ServiceMessageDTO<Object> errorResponse = responseFactory.createInternalErrorResponse(correlationId, error);
+					messageSender.sendResponse(errorResponse, correlationId, replyTo);
 				});
 	}
 }
